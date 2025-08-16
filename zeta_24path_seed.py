@@ -6,7 +6,7 @@ def operator_amplitude(n_max, operator):
     amplitude = [0] * (n_max + 1)
     x_max = int(math.sqrt(n_max / a)) + 2
     for x in range(1, x_max):
-        n = a * x**2 - l x + m
+        n = a * x**2 - l * x + m
         if 0 <= n <= n_max:
             amplitude[n] += 1
             p_x = p + 90 * (x - 1)
@@ -237,4 +237,5 @@ if __name__ == '__main__':
     print(f"\n24-Path Zeta Sum (s = {s}) at n_max = {n_max}:")
     print(f"Total Sum: {total_zeta}")
     print(f"Normalized Sum: {normalized_zeta}")
+
     print(f"|Normalized Sum|: {abs(normalized_zeta):.6f}")
