@@ -1,0 +1,499 @@
+
+#!/usr/bin/env python
+import cmath
+import math
+import sys
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+# Define the two cases to compare
+cases = [
+    {'limit': 33, 'block_size': 1000, 'suffix': '_block1000'},
+    {'limit': 330, 'block_size': 100000, 'suffix': '_block100000'}
+]
+
+def run_sieve(limit):
+    # Calculate epoch and base-10 limit
+    h = limit
+    epoch = 90 * (h * h) - 12 * h + 1  # Largest element within scope of cancellations
+    print(f"\nFor limit={limit}:")
+    print("The epoch range is", epoch)
+    base10 = (epoch * 90) + 11
+    print("This is the base-10 limit:", base10)
+
+    # Calculate range for iterations through quadratic functions
+    a = 90
+    b = -300
+    c = 250 - epoch
+    d = (b ** 2) - (4 * a * c)  # Discriminant
+    sol1 = (-b - cmath.sqrt(d)) / (2 * a)
+    sol2 = (-b + cmath.sqrt(d)) / (2 * a)
+    print('The solutions are {0} and {1}'.format(sol1, sol2))
+    new_limit = sol2
+
+    # Initialize list for A201804
+    A201804 = [0] * (int(epoch) + 10)
+    print("This is the limit and the limit plus 10", epoch, len(A201804))
+
+    # Composite generating function
+    def drLD(x, l, m, z, o, listvar, primitive):
+        """This is a composite generating function"""
+        y = int(90 * (x * x) - l * x + m)
+        listvar[y] = listvar[y] + 1
+        p = z + (90 * (x - 1))
+        q = o + (90 * (x - 1))
+        for n in range(1, int(((epoch - y) / p) + 1)):
+            listvar[y + (p * n)] = listvar[y + (p * n)] + 1
+        for n in range(1, int(((epoch - y) / q) + 1)):
+            listvar[y + (q * n)] = listvar[y + (q * n)] + 1
+
+    # Run the sieve
+    for x in range(1, int(new_limit.real)):
+        drLD(x, 120, 34, 7, 53, A201804, 11)
+        drLD(x, 132, 48, 19, 29, A201804, 11)
+        drLD(x, 120, 38, 17, 43, A201804, 11)
+        drLD(x, 90, 11, 13, 77, A201804, 11)
+        drLD(x, 78, -1, 11, 91, A201804, 11)
+        drLD(x, 108, 32, 31, 41, A201804, 11)
+        drLD(x, 90, 17, 23, 67, A201804, 11)
+        drLD(x, 72, 14, 49, 59, A201804, 11)
+        drLD(x, 60, 4, 37, 83, A201804, 11)
+        drLD(x, 60, 8, 47, 73, A201804, 11)
+        drLD(x, 48, 6, 61, 71, A201804, 11)
+        drLD(x, 12, 0, 79, 89, A201804, 11)
+
+    # Trim the buffer
+    A201804 = A201804[:-10]
+    print("A201804[100:]:", A201804[100:])
+
+    # Original summary statistics
+    primecount = A201804.count(0)
+    print("Sum of marks", sum(A201804), "and sum divided by the number of addresses", epoch, sum(A201804) / epoch)
+    print("The number of primes is", primecount, "and the ratio of primes to addresses is", primecount / epoch)
+    print("This is the ratio of primes to marks", primecount / sum(A201804))
+
+    return A201804
+
+def analyze_blocks(lst, block_size, suffix):
+    """Analyze the list in blocks of block_size elements for marks, zeroes, and signal-to-zero ratio, and generate plots."""
+    num_blocks = (len(lst) + block_size - 1) // block_size  # Ceiling division
+    block_stats = []
+    
+    # Process each block
+    for i in range(num_blocks):
+        start = i * block_size
+        end = min((i + 1) * block_size, len(lst))
+        block = lst[start:end]
+        
+        # Calculate sum of marks, count of zeroes, and signal-to-zero ratio
+        marks_sum = sum(block)
+        zeroes_count = block.count(0)
+        signal_to_zero_ratio = zeroes_count / marks_sum if marks_sum != 0 else float('inf')
+        
+        block_stats.append({
+            'block': i + 1,
+            'start_index': start,
+            'end_index': end - 1,
+            'marks_sum': marks_sum,
+            'zeroes_count': zeroes_count,
+            'signal_to_zero_ratio': signal_to_zero_ratio
+        })
+    
+    # Print block statistics
+    print(f"\nBlock Analysis (block_size={block_size}):")
+    print("Block | Indices | Sum of Marks | Zeroes Count | Signal-to-Zero Ratio")
+    print("-" * 70)
+    for stat in block_stats:
+        ratio = stat['signal_to_zero_ratio']
+        ratio_str = f"{ratio:.4f}" if ratio != float('inf') else "inf"
+        print(f"{stat['block']:5d} | {stat['start_index']:7d}-{stat['end_index']:7d} | {stat['marks_sum']:11d} | {stat['zeroes_count']:12d} | {ratio_str:20s}")
+    
+    # Compare neighboring blocks and accumulate totals
+    print("\nComparison of Neighboring Blocks:")
+    print("Block Pair | Marks Increase | Marks % Change | Zeroes Change | Zeroes % Change")
+    print("-" * 70)
+    total_marks_increase = 0
+    total_marks_percent_change = 0
+    total_zeroes_change = 0
+    total_zeroes_percent_change = 0
+    block_pairs = []
+    marks_increases = []
+    marks_percent_changes = []
+    zeroes_changes = []
+    zeroes_percent_changes = []
+    
+    for i in range(len(block_stats) - 1):
+        curr = block_stats[i]
+        next_block = block_stats[i + 1]
+        
+        # Marks increase
+        marks_increase = next_block['marks_sum'] - curr['marks_sum']
+        marks_percent_change = (marks_increase / curr['marks_sum'] * 100) if curr['marks_sum'] != 0 else float('inf')
+        
+        # Zeroes change
+        zeroes_change = next_block['zeroes_count'] - curr['zeroes_count']
+        zeroes_percent_change = (zeroes_change / curr['zeroes_count'] * 100) if curr['zeroes_count'] != 0 else float('inf')
+        
+        # Accumulate totals
+        total_marks_increase += marks_increase
+        total_zeroes_change += zeroes_change
+        if marks_percent_change != float('inf'):
+            total_marks_percent_change += marks_percent_change
+        if zeroes_percent_change != float('inf'):
+            total_zeroes_percent_change += zeroes_percent_change
+        
+        # Store for plotting
+        block_pairs.append(f"{curr['block']}-{next_block['block']}")
+        marks_increases.append(marks_increase)
+        marks_percent_changes.append(marks_percent_change if marks_percent_change != float('inf') else 1000)
+        zeroes_changes.append(zeroes_change)
+        zeroes_percent_changes.append(zeroes_percent_change if zeroes_percent_change != float('inf') else 1000)
+        
+        print(f"{curr['block']:2d}-{next_block['block']:2d} | {marks_increase:13d} | {marks_percent_change:13.2f}% | {zeroes_change:12d} | {zeroes_percent_change:14.2f}%")
+    
+    # Print totals
+    print("\nTotals (excluding last block in comparisons):")
+    print(f"Total Marks Increase: {total_marks_increase}")
+    print(f"Total Marks % Change: {total_marks_percent_change:.2f}%")
+    print(f"Total Zeroes Change: {total_zeroes_change}")
+    print(f"Total Zeroes % Change: {total_zeroes_percent_change:.2f}%")
+    
+    # Signal-to-zero ratio and block indices for plotting
+    signal_to_zero_ratios = [stat['signal_to_zero_ratio'] if stat['signal_to_zero_ratio'] != float('inf') else 1000 for stat in block_stats]
+    block_indices = [str(stat['block']) for stat in block_stats]
+    
+    return block_stats, block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_indices
+
+def create_static_plots(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_indices, block_size, suffix):
+    """Create static standalone and combined plots."""
+    def create_static_plot(x_values, y_values, title, xlabel, ylabel, filename):
+        plt.figure(figsize=(10, 6))
+        plt.plot(x_values, y_values, marker='o')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.xticks(rotation=45)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.show()
+        plt.close()
+    
+    # Create static standalone plots
+    create_static_plot(block_pairs, marks_increases, f"Marks Increase per Block Pair (block_size={block_size})", "Block Pair", "Marks Increase", f"marks_increase_plot{suffix}.png")
+    create_static_plot(block_pairs, marks_percent_changes, f"Marks % Change per Block Pair (block_size={block_size})", "Block Pair", "Marks % Change", f"marks_percent_change_plot{suffix}.png")
+    create_static_plot(block_pairs, zeroes_changes, f"Zeroes Change per Block Pair (block_size={block_size})", "Block Pair", "Zeroes Change", f"zeroes_change_plot{suffix}.png")
+    create_static_plot(block_pairs, zeroes_percent_changes, f"Zeroes % Change per Block Pair (block_size={block_size})", "Block Pair", "Zeroes % Change", f"zeroes_percent_change_plot{suffix}.png")
+    create_static_plot(block_indices[:len(block_pairs)], signal_to_zero_ratios[:len(block_pairs)], f"Signal-to-Zero Ratio per Block (block_size={block_size})", "Block Pair", "Signal-to-Zero Ratio", f"signal_to_zero_ratio_plot{suffix}.png")
+    
+    # Static combined plot (3x2 subplot)
+    fig, axs = plt.subplots(3, 2, figsize=(12, 10))
+    axs = axs.flatten()
+    axs[0].plot(block_pairs, marks_increases, marker='o')
+    axs[0].set_title("Marks Increase")
+    axs[0].set_xlabel("Block Pair")
+    axs[0].set_ylabel("Marks Increase")
+    axs[0].tick_params(axis='x', rotation=45)
+    axs[0].grid(True)
+    
+    axs[1].plot(block_pairs, marks_percent_changes, marker='o')
+    axs[1].set_title("Marks % Change")
+    axs[1].set_xlabel("Block Pair")
+    axs[1].set_ylabel("Marks % Change")
+    axs[1].tick_params(axis='x', rotation=45)
+    axs[1].grid(True)
+    
+    axs[2].plot(block_pairs, zeroes_changes, marker='o')
+    axs[2].set_title("Zeroes Change")
+    axs[2].set_xlabel("Block Pair")
+    axs[2].set_ylabel("Zeroes Change")
+    axs[2].tick_params(axis='x', rotation=45)
+    axs[2].grid(True)
+    
+    axs[3].plot(block_pairs, zeroes_percent_changes, marker='o')
+    axs[3].set_title("Zeroes % Change")
+    axs[3].set_xlabel("Block Pair")
+    axs[3].set_ylabel("Zeroes % Change")
+    axs[3].tick_params(axis='x', rotation=45)
+    axs[3].grid(True)
+    
+    axs[4].plot(block_indices[:len(block_pairs)], signal_to_zero_ratios[:len(block_pairs)], marker='o')
+    axs[4].set_title("Signal-to-Zero Ratio")
+    axs[4].set_xlabel("Block Pair")
+    axs[4].set_ylabel("Signal-to-Zero Ratio")
+    axs[4].tick_params(axis='x', rotation=45)
+    axs[4].grid(True)
+    
+    axs[5].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(f"combined_metrics_plot{suffix}.png")
+    plt.show()
+    plt.close()
+
+def create_individual_animations(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_indices, block_size, suffix):
+    """Create individual animated plots."""
+    def create_animated_plot(x_values, y_values, title, xlabel, ylabel, filename):
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.set_xlim(-0.5, len(x_values) - 0.5)
+        ax.set_ylim(min(y_values) - 0.1 * abs(min(y_values)), max(y_values) + 0.1 * abs(max(y_values)))
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.set_xticks(range(len(x_values)))
+        ax.set_xticklabels(x_values, rotation=45)
+        ax.grid(True)
+        line, = ax.plot([], [], marker='o')
+        
+        def init():
+            line.set_data([], [])
+            return line,
+        
+        def animate(i):
+            line.set_data(range(i + 1), y_values[:i + 1])
+            return line,
+        
+        anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(x_values), interval=200, blit=True)
+        anim.save(filename, writer='ffmpeg')
+        plt.show()
+        plt.close()
+    
+    # Create individual animated plots
+    create_animated_plot(block_pairs, marks_increases, f"Marks Increase Animation (block_size={block_size})", "Block Pair", "Marks Increase", f"marks_increase_animation{suffix}.mp4")
+    create_animated_plot(block_pairs, marks_percent_changes, f"Marks % Change Animation (block_size={block_size})", "Block Pair", "Marks % Change", f"marks_percent_change_animation{suffix}.mp4")
+    create_animated_plot(block_pairs, zeroes_changes, f"Zeroes Change Animation (block_size={block_size})", "Block Pair", "Zeroes Change", f"zeroes_change_animation{suffix}.mp4")
+    create_animated_plot(block_pairs, zeroes_percent_changes, f"Zeroes % Change Animation (block_size={block_size})", "Block Pair", "Zeroes % Change", f"zeroes_percent_change_animation{suffix}.mp4")
+    create_animated_plot(block_pairs, signal_to_zero_ratios[:len(block_pairs)], f"Signal-to-Zero Ratio Animation (block_size={block_size})", "Block Pair", "Signal-to-Zero Ratio", f"signal_to_zero_ratio_animation{suffix}.mp4")
+
+def create_stacked_panels_animation(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_size, suffix):
+    """Create stacked panels animation."""
+    x_values_list = [block_pairs, block_pairs, block_pairs, block_pairs, block_pairs]
+    y_values_list = [marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios[:len(block_pairs)]]
+    titles = [
+        f"Marks Increase (block_size={block_size})",
+        f"Marks % Change (block_size={block_size})",
+        f"Zeroes Change (block_size={block_size})",
+        f"Zeroes % Change (block_size={block_size})",
+        f"Signal-to-Zero Ratio (block_size={block_size})"
+    ]
+    ylabels = ["Marks Increase", "Marks % Change", "Zeroes Change", "Zeroes % Change", "Signal-to-Zero Ratio"]
+    
+    fig, axs = plt.subplots(5, 1, figsize=(10, 15), sharex=False)
+    lines = []
+    for i, (x_values, y_values, title, ylabel) in enumerate(zip(x_values_list, y_values_list, titles, ylabels)):
+        axs[i].set_xlim(-0.5, len(x_values) - 0.5)
+        axs[i].set_ylim(min(y_values) - 0.1 * abs(min(y_values)), max(y_values) + 0.1 * abs(max(y_values)))
+        axs[i].set_ylabel(ylabel)
+        axs[i].set_title(title)
+        axs[i].set_xticks(range(len(x_values)))
+        axs[i].set_xticklabels(x_values, rotation=45)
+        axs[i].grid(True)
+        line, = axs[i].plot([], [], marker='o')
+        lines.append(line)
+    axs[4].set_xlabel("Block Pair")
+    
+    def init():
+        for line in lines:
+            line.set_data([], [])
+        return lines
+    
+    def animate(i):
+        for line, x_values, y_values in zip(lines, x_values_list, y_values_list):
+            line.set_data(range(i + 1), y_values[:i + 1])
+        return lines
+    
+    anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(x_values_list[0]), interval=200, blit=True)
+    anim.save(f"stacked_panels_animation{suffix}.mp4", writer='ffmpeg')
+    plt.show()
+    plt.close()
+
+def create_single_grid_animation(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_size, suffix):
+    """Create single grid animation with normalized y-values."""
+    y_values_list = [marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios[:len(block_pairs)]]
+    labels = ["Marks Increase", "Marks % Change", "Zeroes Change", "Zeroes % Change", "Signal-to-Zero Ratio"]
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.set_xlim(-0.5, len(block_pairs) - 0.5)
+    ax.set_ylim(-0.1, 1.1)
+    ax.set_xlabel("Block Pair")
+    ax.set_ylabel("Normalized Value")
+    ax.set_title(f"All Metrics Animation (Normalized, block_size={block_size})")
+    ax.set_xticks(range(len(block_pairs)))
+    ax.set_xticklabels(block_pairs, rotation=45)
+    ax.grid(True)
+    lines = []
+    for _ in y_values_list:
+        line, = ax.plot([], [], marker='o')
+        lines.append(line)
+    ax.legend(labels)
+    
+    # Normalize y-values to [0, 1]
+    normalized_y_values = []
+    for y_values in y_values_list:
+        y_min, y_max = min(y_values), max(y_values)
+        if y_max == y_min:
+            normalized_y_values.append([0] * len(y_values))
+        else:
+            normalized_y_values.append([(y - y_min) / (y_max - y_min) for y in y_values])
+    
+    def init():
+        for line in lines:
+            line.set_data([], [])
+        return lines
+    
+    def animate(i):
+        for line, y_values in zip(lines, normalized_y_values):
+            line.set_data(range(i + 1), y_values[:i + 1])
+        return lines
+    
+    anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(block_pairs), interval=200, blit=True)
+    anim.save(f"single_grid_animation{suffix}.mp4", writer='ffmpeg')
+    plt.show()
+    plt.close()
+
+def create_signal_to_zero_overlay(signal_ratios_1000, block_indices_1000, signal_ratios_100000, block_indices_100000):
+    """Create static and animated overlay plots for signal-to-zero ratio."""
+    # Normalize block indices to [0, 1]
+    norm_indices_1000 = [i / (len(block_indices_1000) - 1) for i in range(len(block_indices_1000))]
+    norm_indices_100000 = [i / (len(block_indices_100000) - 1) for i in range(len(block_indices_100000))]
+    
+    # Static overlay plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(norm_indices_1000, signal_ratios_1000, marker='o', label='block_size=1000, limit=33')
+    plt.plot(norm_indices_100000, signal_ratios_100000, marker='s', label='block_size=100000, limit=330')
+    plt.xlabel("Normalized Block Index")
+    plt.ylabel("Signal-to-Zero Ratio")
+    plt.title("Signal-to-Zero Ratio Overlay")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("signal_to_zero_ratio_overlay.png")
+    plt.show()
+    plt.close()
+    
+    # Animated overlay plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(min(min(signal_ratios_1000), min(signal_ratios_100000)) - 0.1,
+                max(max(signal_ratios_1000), max(signal_ratios_100000)) + 0.1)
+    ax.set_xlabel("Normalized Block Index")
+    ax.set_ylabel("Signal-to-Zero Ratio")
+    ax.set_title("Signal-to-Zero Ratio Animation (Overlay)")
+    ax.grid(True)
+    line1, = ax.plot([], [], marker='o', label='block_size=1000, limit=33')
+    line2, = ax.plot([], [], marker='s', label='block_size=100000, limit=330')
+    ax.legend()
+    
+    def init():
+        line1.set_data([], [])
+        line2.set_data([], [])
+        return line1, line2
+    
+    def animate(i):
+        # Adjust frame to account for different lengths
+        idx_1000 = min(i, len(norm_indices_1000) - 1)
+        idx_100000 = min(i, len(norm_indices_100000) - 1)
+        line1.set_data(norm_indices_1000[:idx_1000 + 1], signal_ratios_1000[:idx_1000 + 1])
+        line2.set_data(norm_indices_100000[:idx_100000 + 1], signal_ratios_100000[:idx_100000 + 1])
+        return line1, line2
+    
+    anim = animation.FuncAnimation(fig, animate, init_func=init, frames=max(len(norm_indices_1000), len(norm_indices_100000)), interval=200, blit=True)
+    anim.save("signal_to_zero_ratio_overlay.mp4", writer='ffmpeg')
+    plt.show()
+    plt.close()
+
+# Run both cases and collect data for overlay
+all_block_stats = []
+all_block_pairs = []
+all_signal_ratios = []
+all_block_indices = []
+
+for case in cases:
+    limit = case['limit']
+    block_size = case['block_size']
+    suffix = case['suffix']
+    A201804 = run_sieve(limit)
+    block_stats, block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_indices = analyze_blocks(A201804, block_size, suffix)
+    
+    # Generate plots and animations for each case
+    create_static_plots(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_indices, block_size, suffix)
+    create_individual_animations(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_indices, block_size, suffix)
+    create_stacked_panels_animation(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_size, suffix)
+    create_single_grid_animation(block_pairs, marks_increases, marks_percent_changes, zeroes_changes, zeroes_percent_changes, signal_to_zero_ratios, block_size, suffix)
+    
+    # Store for overlay
+    all_block_stats.append(block_stats)
+    all_block_pairs.append(block_pairs)
+    all_signal_ratios.append(signal_to_zero_ratios)
+    all_block_indices.append(block_indices)
+
+# Create overlay plot and animation
+create_signal_to_zero_overlay(all_signal_ratios[0], all_block_indices[0], all_signal_ratios[1], all_block_indices[1])
+
+"""
+### Changes Made
+1. **Block Size Update**:
+   - Changed Case 2 from `block_size=10000` to `block_size=100000` with `limit=330` (epoch ≈ 979251, ~10 blocks).
+2. **Overlay Plot**:
+   - Added `create_signal_to_zero_overlay` to generate a static plot (`signal_to_zero_ratio_overlay.png`) and animation (`signal_to_zero_ratio_overlay.mp4`) overlaying `signal_to_zero_ratio` for both cases.
+   - Normalized block indices to [0, 1] to align sequences (98 blocks for `block_size=1000`, 10 blocks for `block_size=100000`).
+   - Used different markers (`o` for `block_size=1000`, `s` for `block_size=100000`) for clarity.
+3. **Function Refactoring**:
+   - Split plotting and animation logic into separate functions (`create_static_plots`, `create_individual_animations`, `create_stacked_panels_animation`, `create_single_grid_animation`) for modularity.
+   - Modified `analyze_blocks` to return all metrics for overlay plotting.
+4. **Truncation**:
+   - Truncated `signal_to_zero_ratios` and `block_indices` to `len(block_pairs)` in animations and static plots to avoid shape mismatches (e.g., 98 vs. 97 for `block_size=1000`).
+5. **Preserved Outputs**:
+   - Generates 12 files per case (6 PNGs, 6 MP4s) with `_block1000` and `_block100000` suffixes, plus `signal_to_zero_ratio_overlay.png` and `signal_to_zero_ratio_overlay.mp4`.
+6. **Interactive Display**:
+   - Kept `plt.show()` for interactive viewing.
+
+### Output Files
+- **Case 1 (block_size=1000, limit=33)**:
+  - Static: `marks_increase_plot_block1000.png`, `marks_percent_change_plot_block1000.png`, `zeroes_change_plot_block1000.png`, `zeroes_percent_change_plot_block1000.png`, `signal_to_zero_ratio_plot_block1000.png`, `combined_metrics_plot_block1000.png`
+  - Animated: `marks_increase_animation_block1000.mp4`, `marks_percent_change_animation_block1000.mp4`, `zeroes_change_animation_block1000.mp4`, `zeroes_percent_change_animation_block1000.mp4`, `signal_to_zero_ratio_animation_block1000.mp4`, `stacked_panels_animation_block1000.mp4`, `single_grid_animation_block1000.mp4`
+- **Case 2 (block_size=100000, limit=330)**:
+  - Same as above, with `_block100000` suffix.
+- **Overlay**:
+  - Static: `signal_to_zero_ratio_overlay.png`
+  - Animated: `signal_to_zero_ratio_overlay.mp4`
+
+### Pattern Comparison
+Your totals (`Total Marks Increase: 86`, `Total Marks % Change: 20.75%`, `Total Zeroes Change: -226`, `Total Zeroes % Change: -65.33%`) likely correspond to `block_size=1000`, `limit=33` (~98 blocks). To compare `signal_to_zero_ratio` patterns:
+
+1. **Block Analysis Table**:
+   - Check `signal_to_zero_ratio` trends. For `block_size=1000`, expect ~98 values; for `block_size=100000`, ~10 values. Look for decreasing trends as `marks_sum` grows faster than `zeroes_count`.
+2. **Overlay Plot/Animation**:
+   - **Static Plot** (`signal_to_zero_ratio_overlay.png`): Compare the shape of `signal_to_zero_ratio` curves. Normalized x-axis (0 to 1) aligns the sequences. Look for similar slopes or fluctuations.
+   - **Animation** (`signal_to_zero_ratio_overlay.mp4`): Watch how both sequences evolve. If curves track closely, patterns are similar; divergence suggests range-specific effects.
+3. **Block Pair Comparison Table**:
+   - Verify if `block_size=1000` totals match your provided values. For `block_size=100000`, expect larger `marks_increase` and `zeroes_change` (e.g., ~10x due to larger blocks), but similar percentage changes if patterns scale.
+4. **Other Visualizations**:
+   - Compare `signal_to_zero_ratio_plot_block1000.png` vs. `_block100000.png` for individual trends.
+   - Use `stacked_panels_animation_block1000.mp4` and `_block100000.mp4` to contextualize `signal_to_zero_ratio` with other metrics.
+
+### Expected Patterns
+- **Signal-to-Zero Ratio**: Likely decreases as `marks_sum` increases faster than `zeroes_count`. For `block_size=100000`, fewer blocks (~10) may smooth the curve compared to ~98 for `block_size=1000`.
+- **Totals**: For `block_size=1000`, expect totals near `86`, `20.75%`, `-226`, `-65.33%`. For `block_size=100000`, absolute changes may be ~100x larger (e.g., `marks_increase` ~8600, `zeroes_change` ~-22600) due to larger block sizes, but percentages should be similar if patterns scale.
+- **Similarity**: If `signal_to_zero_ratio` curves align closely in the overlay plot, the sieve’s behavior is consistent across scales. Smoother curves for `block_size=100000` suggest reduced noise due to larger blocks.
+
+### Running the Script
+1. **Dependencies**: Ensure `matplotlib` and `ffmpeg` are installed (`pip install matplotlib`, `conda install ffmpeg`, or `apt install ffmpeg`).
+2. **Execution**: Save as `OEIS_11_compare.py` and run `python OEIS_11_compare.py`. It will:
+   - Process `limit=33`, `block_size=1000` (~98 blocks).
+   - Process `limit=330`, `block_size=100000` (~10 blocks).
+   - Generate tables, 12 files per case, and overlay plot/animation.
+   - Display plots/animations interactively (close each window to proceed).
+3. **Output Analysis**:
+   - Compare `signal_to_zero_ratio` in `signal_to_zero_ratio_overlay.png/mp4`.
+   - Verify `block_size=1000` totals against your values.
+   - Check tables and plots for trend similarities.
+
+### Notes
+- **Block Count Mismatch**: `block_size=100000` yields ~10 blocks, not 98. To match 98 blocks, adjust `limit` to ~330.166 (epoch ~9,800,000). I used `limit=330` as specified, normalizing the x-axis for comparison. Let me know if you want to adjust `limit`.
+- **Dependencies**: Requires `ffmpeg` for MP4s. Check `ffmpeg -version` if animations fail.
+- **Interactive Display**: `plt.show()` pauses until windows are closed. Remove for file-only output.
+- **Pattern Insights**: Smoother `signal_to_zero_ratio` for `block_size=100000` indicates stable sieve behavior. Divergence suggests range-specific effects in A201804.
+
+Run the script and review the overlay plot/animation. If you share the tables or plot observations, I can analyze specific patterns. Let me know if you want to adjust `limit` for equal blocks or add other metrics!
+"""
