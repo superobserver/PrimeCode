@@ -1,0 +1,28 @@
+import subprocess
+import sys
+#subprocess.run("python co11_91.py", shell=True )
+#subprocess.run("python co7_53.py", shell=True )
+#subprocess.run("python co19_29.py", shell=True )
+#subprocess.run("python co17_43.py", shell=True )
+#subprocess.run("python co13_77.py", shell=True )
+#subprocess.run("python co31_41.py", shell=True )
+#subprocess.run("python co23_67.py", shell=True )
+#subprocess.run("python co49_59.py", shell=True )
+#subprocess.run("python co37_83.py", shell=True )
+#subprocess.run("python co47_73.py", shell=True )
+#subprocess.run("python co61_71.py", shell=True )
+#subprocess.run("python co79_89.py", shell=True )
+
+start = 100000
+subprocess.Popen(["start", "cmd", "/k", "python co11_91.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co7_53.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co19_29.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co17_43.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co13_77.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co31_41.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co23_67.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co49_59.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co37_83.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co47_73.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co61_71.py" ], shell=True)
+subprocess.Popen(["start", "cmd", "/k", "python co79_89.py" ], shell=True)
